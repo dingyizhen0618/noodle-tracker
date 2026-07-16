@@ -1,0 +1,36 @@
+name: Auto Update Noodle Webpage
+
+on:
+  schedule:
+    # 每天日本时间早上 9:00 (UTC 0:00) 自动运行一次
+    - cron: '0 0 * * *'
+  workflow_dispatch: # 允许你手动点击按钮随时更新
+
+permissions:
+  contents: write # 赋予机器人修改网页文件的权限
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - name: 1. 拉取仓库代码
+      uses: actions/checkout@v3
+
+    - name: 2. 安装 Python 环境
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+
+    - name: 3. 安装爬虫必要的依赖
+      run: |
+        pip install requests beautifulsoup4
+
+    - name: 4. 运行爬虫脚本生成新网页
+      run: python noodle_monitor.py
+
+    - name: 5. 自动把新生成的网页推送到你的网站上
+      run: |
+        git config --global user.name "NoodleBot"
+        git config --global user.email "bot@noodle.com"
+        git add index.html
+        git diff-index --quiet HEAD || (git commit -m "自动更新方便面数据" && git push)
