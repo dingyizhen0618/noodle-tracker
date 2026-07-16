@@ -7,19 +7,22 @@ from bs4 import BeautifulSoup
 # 禁用安全请求警告
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-# 顶级浏览器伪装
+# 升级版全局浏览器伪装
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
-    "Accept-Language": "ja,ko,en-US;q=0.9,en;q=0.8",
+    "Accept-Language": "ja,ko,zh-CN,zh;q=0.9,en-US;q=0.8,en;q=0.7",
+    "Cache-Control": "max-age=0",
     "Connection": "keep-alive"
 }
 
-def safe_scrape(url, parser_func):
-    """通用的安全爬取函数，自动识别日文、韩文编码，防止乱码"""
+def safe_scrape(url, parser_func, custom_headers=None):
+    """通用的安全爬取函数，支持单独定制请求头，自动识别日韩文编码"""
+    headers = custom_headers if custom_headers else HEADERS
     try:
-        response = requests.get(url, headers=HEADERS, timeout=20, verify=False)
-        # 自动识别日韩文等不同网页的编码格式
+        response = requests.get(url, headers=headers, timeout=25, verify=False)
+        
+        # 自动识别编码，防止日韩文乱码
         if response.encoding == 'ISO-8859-1' or response.encoding is None:
             response.encoding = response.apparent_encoding
         else:
@@ -32,7 +35,7 @@ def safe_scrape(url, parser_func):
     except Exception as e:
         return [{"title": f"连接超时或解析出错: {str(e)[:40]}", "link": url}]
 
-# ==================== 🍜 原有 5 家公司解析规则 ====================
+# ==================== 🍜 原有稳定运行的解析规则 ====================
 
 def parse_nissin(soup):
     results = []
@@ -110,10 +113,7 @@ def parse_asahi(soup):
             break
     return results if results else [{"title": "前往朝日饮料新品页", "link": "https://www.asahiinryo.co.jp/products/new/"}]
 
-# ==================== 🆕 新增 8 家公司解析规则 ====================
-
 def parse_house(soup):
-    # 好侍食品 (House Foods) 新闻页
     results = []
     items = soup.select('.news-list a, .release-list a, a[href*="newsrelease"]')
     for item in items:
@@ -127,23 +127,7 @@ def parse_house(soup):
             break
     return results if results else [{"title": "前往好侍食品新闻页", "link": "https://housefoods-group.com/newsrelease/"}]
 
-def parse_ajinomoto(soup):
-    # 味之素 (Ajinomoto) 新闻页
-    results = []
-    items = soup.select('.press-list a, .news-list a, a[href*="press"]')
-    for item in items:
-        title = item.get_text().strip()
-        link = item['href']
-        if title and len(title) > 8:
-            if not link.startswith('http'):
-                link = "https://www.ajinomoto.co.jp" + link
-            results.append({"title": title, "link": link})
-        if len(results) >= 6:
-            break
-    return results if results else [{"title": "前往味之素新闻发布页", "link": "https://www.ajinomoto.co.jp/company/jp/pressrelease/"}]
-
 def parse_seven_eleven(soup):
-    # 日本 7-11 推荐新品
     results = []
     items = soup.select('.p-recommend__list a, .product-list a, a[href*="products/a/item"]')
     for item in items:
@@ -158,11 +142,9 @@ def parse_seven_eleven(soup):
     return results if results else [{"title": "前往日本7-11新品页", "link": "https://www.sej.co.jp/products/a/thisweek/"}]
 
 def parse_familymart(soup):
-    # 日本全家 (FamilyMart) 今周新商品
     results = []
     items = soup.select('.goods-list a, .p-goods-list a, a[href*="goods/newgoods"]')
     for item in items:
-        # 获取商品名（通常在 a 标签内部的 p 标签里）
         title = item.get_text().strip().replace('\n', ' ')
         title = " ".join(title.split())
         link = item['href']
@@ -174,40 +156,7 @@ def parse_familymart(soup):
             break
     return results if results else [{"title": "前往日本全家新品页", "link": "https://www.family.co.jp/goods/newgoods.html"}]
 
-def parse_kirin(soup):
-    # 麒麟饮料 (Kirin) 新闻发布页
-    results = []
-    items = soup.select('.news-list a, .release-list a, a[href*="news/press"]')
-    for item in items:
-        title = item.get_text().strip()
-        link = item['href']
-        if title and len(title) > 8:
-            if not link.startswith('http'):
-                link = "https://www.kirinholdings.com" + link
-            results.append({"title": title, "link": link})
-        if len(results) >= 6:
-            break
-    return results if results else [{"title": "前往麒麟集团新闻页", "link": "https://www.kirinholdings.com/jp/news/"}]
-
-def parse_calbee(soup):
-    # 卡乐比 (Calbee) 新商品页
-    results = []
-    items = soup.select('.product-list a, .new-product a, a[href*="products/detail"]')
-    if not items:
-         items = soup.find_all('a', href=lambda x: x and 'products/' in x)
-    for item in items:
-        title = item.get_text().strip()
-        link = item['href']
-        if title and len(title) > 4 and "一覧" not in title:
-            if not link.startswith('http'):
-                link = "https://www.calbee.co.jp" + link
-            results.append({"title": title, "link": link})
-        if len(results) >= 6:
-            break
-    return results if results else [{"title": "前往卡乐比新品页", "link": "https://www.calbee.co.jp/products/new/"}]
-
 def parse_samyang(soup):
-    # 韩国三养 (Samyang Foods) 新闻/新品页（韩文自动识别）
     results = []
     items = soup.select('.news-list a, .product-list a, a[href*="board/news"], a[href*="pm/detail"]')
     if not items:
@@ -223,27 +172,95 @@ def parse_samyang(soup):
             break
     return results if results else [{"title": "前往三养食品官网", "link": "https://www.samyangfoods.com"}]
 
-def parse_nongshim(soup):
-    # 韩国农心 (Nongshim) 新商品页
+
+# ==================== 🛠 重构与修复的四家规则 ====================
+
+def parse_ajinomoto(soup):
+    # 味之素新闻发布页
     results = []
-    items = soup.select('.news-list a, .product-list a, a[href*="news/dir"], a[href*="prd/list"]')
+    # 针对新版味之素官网，精确寻找新闻块
+    items = soup.select('.press-list a, .news-list a, .c-list__item a, a[href*="company/jp/pressrelease"]')
     if not items:
-        items = soup.find_all('a', href=lambda x: x and 'prd/' in x)
+        items = soup.find_all('a', href=lambda x: x and 'pressrelease' in x)
+        
     for item in items:
         title = " ".join(item.get_text().strip().split())
-        link = item['href']
-        if title and len(title) > 4 and "목록" not in title:
-            if not link.startswith('http'):
+        link = item.get('href', '')
+        if title and len(title) > 6 and "一覧" not in title:
+            if link and not link.startswith('http'):
+                link = "https://www.ajinomoto.co.jp" + link
+            results.append({"title": title, "link": link})
+        if len(results) >= 6:
+            break
+    return results if results else [{"title": "前往味之素新闻发布页", "link": "https://www.ajinomoto.co.jp/company/jp/pressrelease/"}]
+
+def parse_kirin(soup):
+    # 麒麟集团新闻页
+    results = []
+    items = soup.select('.news-list a, .release-list a, .c-card-link, a[href*="news/press"]')
+    if not items:
+        items = soup.find_all('a', href=lambda x: x and 'news/' in x)
+        
+    for item in items:
+        title = " ".join(item.get_text().strip().split())
+        link = item.get('href', '')
+        if title and len(title) > 8 and "一覧" not in title:
+            if link and not link.startswith('http'):
+                link = "https://www.kirinholdings.com" + link
+            results.append({"title": title, "link": link})
+        if len(results) >= 6:
+            break
+    return results if results else [{"title": "前往麒麟集团新闻页", "link": "https://www.kirinholdings.com/jp/news/"}]
+
+def parse_calbee(soup):
+    # 卡乐比新商品页
+    results = []
+    # 适配 Calbee 最新的产品页 CSS Class 
+    items = soup.select('.p-product-list__item a, .product-list a, .new-product a, a[href*="products/detail"]')
+    if not items:
+         items = soup.find_all('a', href=lambda x: x and 'products/' in x)
+         
+    for item in items:
+        title = " ".join(item.get_text().strip().split())
+        link = item.get('href', '')
+        if title and len(title) > 3 and "一覧" not in title and "ブランド" not in title:
+            if link and not link.startswith('http'):
+                link = "https://www.calbee.co.jp" + link
+            results.append({"title": title, "link": link})
+        if len(results) >= 6:
+            break
+    return results if results else [{"title": "前往卡乐比新品页", "link": "https://www.calbee.co.jp/products/new/"}]
+
+def parse_nongshim(soup):
+    # 韩国农心新商品页
+    results = []
+    # 匹配商品列表和新闻链接
+    items = soup.select('.news-list a, .product-list a, .prd-list a, a[href*="news/dir"], a[href*="prd/list"], a[href*="product/list"]')
+    if not items:
+        items = soup.find_all('a', href=lambda x: x and ('prd' in x or 'product' in x))
+        
+    for item in items:
+        title = " ".join(item.get_text().strip().split())
+        link = item.get('href', '')
+        if title and len(title) > 3 and "목록" not in title and "VIEW" not in title:
+            if link and not link.startswith('http'):
                 link = "https://www.nongshim.com" + link
             results.append({"title": title, "link": link})
         if len(results) >= 6:
             break
     return results if results else [{"title": "前往农心官网", "link": "https://www.nongshim.com"}]
 
+
 # ==================== 🛠 主控制逻辑 ====================
 
 def main():
-    # 统一调度 13 个站点的抓取任务
+    # 针对强力防爬的网站（如麒麟、味之素），注入特定的 Referer 头绕过防火墙
+    kirin_headers = HEADERS.copy()
+    kirin_headers["Referer"] = "https://www.kirinholdings.com/"
+    
+    ajinomoto_headers = HEADERS.copy()
+    ajinomoto_headers["Referer"] = "https://www.ajinomoto.co.jp/"
+
     data = {
         # 原有 5 家
         "日清食品 (Nissin)": safe_scrape("https://www.nissin.com/jp/company/news/", parse_nissin),
@@ -252,12 +269,12 @@ def main():
         "エースコック (Acecook)": safe_scrape("https://www.acecook.co.jp/products/arrival/", parse_acecook),
         "朝日饮料 (Asahi)": safe_scrape("https://www.asahiinryo.co.jp/products/new/", parse_asahi),
         
-        # 新增 8 家
+        # 修复后的 8 家新增
         "好侍食品 (House)": safe_scrape("https://housefoods-group.com/newsrelease/", parse_house),
-        "味之素 (Ajinomoto)": safe_scrape("https://www.ajinomoto.co.jp/company/jp/pressrelease/", parse_ajinomoto),
+        "味之素 (Ajinomoto)": safe_scrape("https://www.ajinomoto.co.jp/company/jp/pressrelease/", parse_ajinomoto, custom_headers=ajinomoto_headers),
         "日本 7-11 (7-Eleven)": safe_scrape("https://www.sej.co.jp/products/a/thisweek/", parse_seven_eleven),
         "日本全家 (FamilyMart)": safe_scrape("https://www.family.co.jp/goods/newgoods.html", parse_familymart),
-        "麒麟集团 (Kirin)": safe_scrape("https://www.kirinholdings.com/jp/news/", parse_kirin),
+        "麒麟集团 (Kirin)": safe_scrape("https://www.kirinholdings.com/jp/news/", parse_kirin, custom_headers=kirin_headers),
         "卡乐比 (Calbee)": safe_scrape("https://www.calbee.co.jp/products/new/", parse_calbee),
         "韩国三养 (Samyang)": safe_scrape("https://www.samyangfoods.com", parse_samyang),
         "韩国农心 (Nongshim)": safe_scrape("https://www.nongshim.com", parse_nongshim),
@@ -332,7 +349,7 @@ def main():
     # 保存网页文件
     with open("index.html", "w", encoding="utf-8") as f:
         f.write(html_content)
-    print("大满贯！13家公司的网页重新生成成功！")
+    print("大功告成！修复版网页重新生成成功！")
 
 if __name__ == "__main__":
     main()
