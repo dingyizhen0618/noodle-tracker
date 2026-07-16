@@ -206,11 +206,11 @@ def parse_kirin(soup):
         link = item.get('href', '')
         if title and len(title) > 8 and "一覧" not in title:
             if link and not link.startswith('http'):
-                link = "https://www.kirinholdings.com" + link
+                link = "https://www.kirin.co.jp/" + link
             results.append({"title": title, "link": link})
         if len(results) >= 6:
             break
-    return results if results else [{"title": "前往麒麟集团新闻页", "link": "https://www.kirinholdings.com/jp/news/"}]
+    return results if results else [{"title": "前往麒麟集团新闻页", "link": "https://www.kirin.co.jp/"}]
 
 def parse_calbee(soup):
     # 卡乐比新商品页
@@ -225,11 +225,11 @@ def parse_calbee(soup):
         link = item.get('href', '')
         if title and len(title) > 3 and "一覧" not in title and "ブランド" not in title:
             if link and not link.startswith('http'):
-                link = "https://www.calbee.co.jp" + link
+                link = "https://www.calbee.co.jp/products/" + link
             results.append({"title": title, "link": link})
         if len(results) >= 6:
             break
-    return results if results else [{"title": "前往卡乐比新品页", "link": "https://www.calbee.co.jp/products/new/"}]
+    return results if results else [{"title": "前往卡乐比新品页", "link": "https://www.calbee.co.jp/products/"}]
 
 def parse_nongshim(soup):
     # 韩国农心新商品页
@@ -244,11 +244,11 @@ def parse_nongshim(soup):
         link = item.get('href', '')
         if title and len(title) > 3 and "목록" not in title and "VIEW" not in title:
             if link and not link.startswith('http'):
-                link = "https://www.nongshim.com" + link
+                link = "https://www.nongshim.com/main/index" + link
             results.append({"title": title, "link": link})
         if len(results) >= 6:
             break
-    return results if results else [{"title": "前往农心官网", "link": "https://www.nongshim.com"}]
+    return results if results else [{"title": "前往农心官网", "link": "https://www.nongshim.com/main/index"}]
 
 
 # ==================== 🛠 主控制逻辑 ====================
@@ -274,10 +274,10 @@ def main():
         "味之素 (Ajinomoto)": safe_scrape("https://www.ajinomoto.co.jp/company/jp/pressrelease/", parse_ajinomoto, custom_headers=ajinomoto_headers),
         "日本 7-11 (7-Eleven)": safe_scrape("https://www.sej.co.jp/products/a/thisweek/", parse_seven_eleven),
         "日本全家 (FamilyMart)": safe_scrape("https://www.family.co.jp/goods/newgoods.html", parse_familymart),
-        "麒麟集团 (Kirin)": safe_scrape("https://www.kirinholdings.com/jp/news/", parse_kirin, custom_headers=kirin_headers),
-        "卡乐比 (Calbee)": safe_scrape("https://www.calbee.co.jp/products/new/", parse_calbee),
+        "麒麟集团 (Kirin)": safe_scrape("https://www.kirin.co.jp/", parse_kirin, custom_headers=kirin_headers),
+        "卡乐比 (Calbee)": safe_scrape("https://www.calbee.co.jp/products/", parse_calbee),
         "韩国三养 (Samyang)": safe_scrape("https://www.samyangfoods.com", parse_samyang),
-        "韩国农心 (Nongshim)": safe_scrape("https://www.nongshim.com", parse_nongshim),
+        "韩国农心 (Nongshim)": safe_scrape("https://www.nongshim.com/main/index", parse_nongshim),
     }
 
     update_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
