@@ -5,14 +5,20 @@ import requests
 from bs4 import BeautifulSoup
 from datetime import datetime, timezone, timedelta
 
+# 更完整的真实浏览器 Header，包含 Sec-Ch-Ua 等，防止被反爬屏蔽
 HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-    "Accept-Language": "ja,zh-CN;q=0.9,zh;q=0.8,en;q=0.7",
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+    "Accept-Language": "ja-JP,ja;q=0.9,zh-CN;q=0.8,zh;q=0.7,en-US;q=0.6,en;q=0.5",
+    "Cache-Control": "max-age=0",
+    "Upgrade-Insecure-Requests": "1"
 }
 
 def get_url(url):
     try:
-        resp = requests.get(url, headers=HEADERS, timeout=12)
+        session = requests.Session()
+        resp = session.get(url, headers=HEADERS, timeout=15)
+        print(f"请求 {url} -> 状态码: {resp.status_code}")
         if resp.status_code == 200:
             resp.encoding = resp.apparent_encoding or 'utf-8'
             return resp.text
@@ -41,17 +47,22 @@ def fetch_nissin():
     if not html:
         return items
     soup = BeautifulSoup(html, 'html.parser')
-    cards = soup.select('.p-news-list__item, .p-card, article')
+    
+    # 支持多种选择器
+    cards = soup.select('.p-news-list__item, .p-card, article, .news-list li, .p-news-list div')
     for card in cards:
         title_el = card.select_one('.p-card__title, .title, h3, h2, a')
         img_el = card.select_one('img')
         link_el = card.select_one('a')
+        
         if title_el:
             title = title_el.get_text(strip=True)
             if not title or "新商品情報" in title or title == "ニュース":
                 continue
+            
             img = make_abs_url(url, img_el.get('src') if img_el else '')
             link = make_abs_url(url, link_el.get('href') if link_el else '')
+            
             if not any(i['title'] == title for i in items):
                 items.append({'title': title, 'img': img, 'link': link})
         if len(items) >= 6:
@@ -65,13 +76,15 @@ def fetch_maruchan():
     if not html:
         return items
     soup = BeautifulSoup(html, 'html.parser')
-    cards = soup.select('.news-list li, .article-list article, .newsBox')
+    cards = soup.select('.news-list li, .article-list article, .newsBox, li')
     for card in cards:
         title_el = card.select_one('.title, dt, h3, a')
         img_el = card.select_one('img')
         link_el = card.select_one('a')
         if title_el:
             title = title_el.get_text(strip=True)
+            if len(title) < 4:  # 过滤过短字符
+                continue
             img = make_abs_url(url, img_el.get('src') if img_el else '')
             link = make_abs_url(url, link_el.get('href') if link_el else '')
             if title and not any(i['title'] == title for i in items):
@@ -87,14 +100,14 @@ def fetch_myojo():
     if not html:
         return items
     soup = BeautifulSoup(html, 'html.parser')
-    cards = soup.select('main .p-news-list__item, main .c-card-news, main article')
+    cards = soup.select('main .p-news-list__item, main .c-card-news, main article, .p-news-list__item')
     for card in cards:
-        title_el = card.select_one('.c-card-news__title, .title, h3')
+        title_el = card.select_one('.c-card-news__title, .title, h3, a')
         img_el = card.select_one('img')
         link_el = card.select_one('a')
         if title_el:
             title = title_el.get_text(strip=True)
-            if "プライバシー" in title or "サステナビリティ" in title:
+            if "プライバシー" in title or "サステナビリティ" in title or "利用規約" in title:
                 continue
             img = make_abs_url(url, img_el.get('src') if img_el else '')
             link = make_abs_url(url, link_el.get('href') if link_el else '')
@@ -111,7 +124,7 @@ def fetch_acecook():
     if not html:
         return items
     soup = BeautifulSoup(html, 'html.parser')
-    cards = soup.select('.news-list__item, .p-news-item, .mod-newsList-item')
+    cards = soup.select('.news-list__item, .p-news-item, .mod-newsList-item, article')
     for card in cards:
         title_el = card.select_one('.title, .p-news-item__title, h3, a')
         img_el = card.select_one('img')
@@ -126,7 +139,7 @@ def fetch_acecook():
             break
     return items
 
-# ==================== 生成 HTML 内容 ====================
+# ==================== HTML 拼接 ====================
 
 def generate_html_cards(brand_name, items):
     if not items:
@@ -152,7 +165,7 @@ def generate_html_cards(brand_name, items):
     return html
 
 def main():
-    print("开始抓取泡面情报...")
+    print("=== 开始抓取日韩方便面情报 ===")
     
     brands = [
         {"name": "日清食品 (Nissin)", "fetcher": fetch_nissin},
@@ -163,32 +176,41 @@ def main():
 
     all_cards_html = ""
     result_data = {}
+    total_count = 0
 
     for brand in brands:
         name = brand["name"]
-        print(f"正在抓取: {name}")
+        print(f"\n正在抓取: {name}...")
         try:
             items = brand["fetcher"]()
             result_data[name] = items
+            count = len(items)
+            total_count += count
+            print(f"  -> 成功获取 {count} 条数据")
             all_cards_html += generate_html_cards(name, items)
         except Exception as e:
-            print(f"  抓取失败 {name}: {e}")
+            print(f"  -> 抓取失败 {name}: {e}")
+
+    # 如果抓取到的全部数据为 0 条（例如云端全被封锁），添加保底显示，绝不留空白页
+    if total_count == 0:
+        print("\n[警告] 所有品牌均未抓取到有效数据，使用保底提示信息。")
+        all_cards_html = '<div style="text-align: center; padding: 40px; color: #64748b;">官网情报获取中或暂时拦截，请稍后再试。</div>'
 
     now_jst = datetime.now(timezone(timedelta(hours=9))).strftime("%Y-%m-%d %H:%M")
 
-    # 1. 保存 history.json 备份
+    # 写入 history.json 备份
     with open("history.json", "w", encoding="utf-8") as f:
         json.dump({"update_time": now_jst, "brands": result_data}, f, ensure_ascii=False, indent=2)
 
-    # 2. 直接将渲染好的 HTML 卡片插入 index.html 模版
+    # 修改 index.html
     if os.path.exists("index.html"):
         with open("index.html", "r", encoding="utf-8") as f:
             html_content = f.read()
 
-        # 替换更新时间和内容区
+        # 1. 替换更新时间
         html_content = re.sub(r'\{\{\s*UPDATE_TIME\s*\}\}', now_jst, html_content)
         
-        # 替换卡片内容区域
+        # 2. 替换卡片内容区
         if "<!-- CONTENT_START -->" in html_content and "<!-- CONTENT_END -->" in html_content:
             pattern = r"<!-- CONTENT_START -->[\s\S]*?<!-- CONTENT_END -->"
             replacement = f"<!-- CONTENT_START -->\n{all_cards_html}\n<!-- CONTENT_END -->"
@@ -197,7 +219,7 @@ def main():
         with open("index.html", "w", encoding="utf-8") as f:
             f.write(html_content)
 
-    print(f"完成！更新时间：{now_jst}")
+    print(f"\n=== 任务完成！更新时间：{now_jst} ===")
 
 if __name__ == "__main__":
     main()
