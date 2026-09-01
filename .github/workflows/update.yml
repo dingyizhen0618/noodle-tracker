@@ -1,37 +1,33 @@
-name: Auto Update Noodle Webpage & Send WeChat
+name: Update Data
 
 on:
   schedule:
-    - cron: '0 0 * * *' # 每天早上自动巡逻
-  workflow_dispatch:
-
-permissions:
-  contents: write
+    - cron: '0 0 * * *' # 每天国际标准时间 0点（日本时间早9点）自动运行
+  workflow_dispatch: # 支持手动点按钮运行
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-    - name: 1. 拉取仓库代码
-      uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-    - name: 2. 安装 Python 环境
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.10'
+      - name: Set up Python
+        uses: actions/python-versions@v4
+        with:
+          python-version: '3.10'
 
-    - name: 3. 安装依赖
-      run: |
-        pip install requests beautifulsoup4
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests beautifulsoup4
 
-    - name: 4. 运行巡逻脚本并发送微信推送
-      env:
-        SERVERCHAN_KEY: ${{ secrets.SERVERCHAN_KEY }} # 传入你在 GitHub 保存的微信密钥
-      run: python noodle_monitor.py
+      - name: Run monitor script
+        run: python noodle_monitor.py
 
-    - name: 5. 保存生成的网页和历史文件
-      run: |
-        git config --global user.name "NoodleBot"
-        git config --global user.email "bot@noodle.com"
-        git add index.html history.json
-        git diff-index --quiet HEAD || (git commit -m "更新网页与上新历史记录" && git pull --rebase origin main && git push)
+      - name: Commit and push changes
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add index.html history.json
+          git diff --quiet && git diff --staged --quiet || (git commit -m "Auto update content" && git push)
