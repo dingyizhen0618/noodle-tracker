@@ -1,13 +1,12 @@
-name: Auto Update Noodle Webpage
+name: Auto Update Noodle Webpage & Send WeChat
 
 on:
   schedule:
-    # 每天日本时间早上 9:00 (UTC 0:00) 自动运行一次
-    - cron: '0 0 * * *'
-  workflow_dispatch: # 允许你手动点击按钮随时更新
+    - cron: '0 0 * * *' # 每天早上自动巡逻
+  workflow_dispatch:
 
 permissions:
-  contents: write # 赋予机器人修改网页文件的权限
+  contents: write
 
 jobs:
   build:
@@ -21,16 +20,18 @@ jobs:
       with:
         python-version: '3.10'
 
-    - name: 3. 安装爬虫必要的依赖
+    - name: 3. 安装依赖
       run: |
         pip install requests beautifulsoup4
 
-    - name: 4. 运行爬虫脚本生成新网页
+    - name: 4. 运行巡逻脚本并发送微信推送
+      env:
+        SERVERCHAN_KEY: ${{ secrets.SERVERCHAN_KEY }} # 传入你在 GitHub 保存的微信密钥
       run: python noodle_monitor.py
 
-    - name: 5. 自动把新生成的网页推送到你的网站上
+    - name: 5. 保存生成的网页和历史文件
       run: |
         git config --global user.name "NoodleBot"
         git config --global user.email "bot@noodle.com"
-        git add index.html
-        git diff-index --quiet HEAD || (git commit -m "自动更新方便面数据" && git push)
+        git add index.html history.json
+        git diff-index --quiet HEAD || (git commit -m "更新网页与上新历史记录" && git push)
