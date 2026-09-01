@@ -11,7 +11,6 @@
             --text-main: #0f172a;
             --text-muted: #64748b;
             --border-color: #e2e8f0;
-            --primary-accent: #e11d48;
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -30,7 +29,7 @@
 
         header {
             text-align: center;
-            margin-bottom: 24px;
+            margin-bottom: 28px;
         }
 
         h1 {
@@ -53,24 +52,27 @@
         }
 
         .brand-section {
-            margin-bottom: 28px;
+            margin-bottom: 32px;
         }
 
         .brand-header {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            margin-bottom: 12px;
+            margin-bottom: 14px;
         }
 
         .brand-title {
-            font-size: 1.1rem;
+            font-size: 1.15rem;
             font-weight: 700;
+            color: #1e293b;
+            border-left: 4px solid #d97706;
+            padding-left: 8px;
         }
 
         .cards-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
             gap: 16px;
         }
 
@@ -93,7 +95,7 @@
 
         .img-box {
             width: 100%;
-            height: 140px;
+            height: 145px;
             background: #f1f5f9;
             overflow: hidden;
         }
@@ -105,10 +107,11 @@
         }
 
         .card-info {
-            padding: 10px 12px;
+            padding: 12px;
             font-size: 0.875rem;
             font-weight: 500;
             line-height: 1.4;
+            color: #334155;
         }
     </style>
 </head>
@@ -117,55 +120,15 @@
 <div class="container">
     <header>
         <h1>🍜 日韩泡面新品情报站</h1>
-        <div class="update-badge">🟢 更新时间: 2026-09-01 14:53</div>
+        <div class="update-badge">🟢 更新时间: {{ UPDATE_TIME }}</div>
     </header>
 
     <main id="mainContent">
-        <!-- 数据将由 history.json 或脚本渲染 -->
+        <!-- CONTENT_START -->
+        <p style="text-align: center; color: #94a3b8;">等待自动巡逻更新数据...</p>
+        <!-- CONTENT_END -->
     </main>
 </div>
-
-<script>
-    // 读取 history.json 填充页面
-    async function init() {
-        try {
-            const res = await fetch('history.json?t=' + Date.now());
-            if (!res.ok) return;
-            const data = await res.json();
-            const main = document.getElementById('mainContent');
-            main.innerHTML = '';
-
-            for (const [brand, items] of Object.entries(data.brands || {})) {
-                if (!items || items.length === 0) continue;
-
-                const sec = document.createElement('section');
-                sec.className = 'brand-section';
-                
-                let html = `<div class="brand-header"><div class="brand-title">${brand}</div></div>`;
-                html += `<div class="cards-grid">`;
-
-                items.forEach(item => {
-                    const img = item.img || 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="140"><rect width="200" height="140" fill="%23f1f5f9"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%2394a3b8">无图</text></svg>';
-                    html += `
-                        <a href="${item.link}" target="_blank" class="card">
-                            <div class="img-box">
-                                <img src="${img}" alt="${item.title}" referrerpolicy="no-referrer" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=&quot;http://www.w3.org/2000/svg&quot; width=&quot;200&quot; height=&quot;140&quot;><rect width=&quot;200&quot; height=&quot;140&quot; fill=&quot;%23f1f5f9&quot;/><text x=&quot;50%&quot; y=&quot;50%&quot; dominant-baseline=&quot;middle&quot; text-anchor=&quot;middle&quot; fill=&quot;%2394a3b8&quot;>图片载入失败</text></svg>';">
-                            </div>
-                            <div class="card-info">${item.title}</div>
-                        </a>
-                    `;
-                });
-
-                html += `</div>`;
-                sec.innerHTML = html;
-                main.appendChild(sec);
-            }
-        } catch (e) {
-            console.error(e);
-        }
-    }
-    document.addEventListener('DOMContentLoaded', init);
-</script>
 
 </body>
 </html>
