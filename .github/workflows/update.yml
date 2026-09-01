@@ -34,4 +34,4 @@ jobs:
         git config --global user.name "NoodleBot"
         git config --global user.email "bot@noodle.com"
         git add index.html history.json
-        git diff-index --quiet HEAD || (git commit -m "更新网页与上新历史记录" && git push)
+        git diff-index --quiet HEAD || (git commit -m "更新网页与上新历史记录" && git pull --rebase origin main && git push)
