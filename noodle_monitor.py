@@ -8,7 +8,6 @@ from bs4 import BeautifulSoup
 # 禁用安全请求警告
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-# 全局浏览器伪装
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
@@ -23,16 +22,15 @@ def send_wechat_notification(new_items):
         print("未配置 SERVERCHAN_KEY，跳过微信推送。")
         return
 
-    # 构建微信消息内容 (Markdown 格式)
-    title = f"🍜 发现 {len(new_items)} 个日韩食品新品上新！"
+    title = f"🍜 发现 {len(new_items)} 个重点品牌新品上新！"
     content = "### 🚨 最新抓取的重点品牌新品提醒：\n\n"
     
     for item in new_items:
-        content += f"* **[{item['company']}]** [{item['title']}]({item['link']})\n"
+        img_md = f"![{item['title']}]({item['image']})\n" if item.get('image') else ""
+        content += f"* **[{item['company']}]** [{item['title']}]({item['link']})\n{img_md}\n"
         
-    content += f"\n\n*发送时间: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}*"
+    content += f"\n*发送时间: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}*"
 
-    # 发送请求给 Server酱 API
     url = f"https://sctapi.ftqq.com/{serverchan_key}.send"
     data = {"title": title, "desp": content}
     try:
@@ -52,170 +50,219 @@ def safe_scrape(url, parser_func, custom_headers=None):
             
         if response.status_code == 200:
             soup = BeautifulSoup(response.text, 'html.parser')
-            return parser_func(soup)
-        return [{"title": f"访问失败 ({response.status_code})", "link": url}]
+            return parser_func(soup, url)
+        return [{"title": f"访问失败 ({response.status_code})", "link": url, "image": ""}]
     except Exception as e:
-        return [{"title": f"连接超时: {str(e)[:20]}", "link": url}]
+        return [{"title": f"连接超时: {str(e)[:20]}", "link": url, "image": ""}]
 
-# ==================== 各家解析规则 (保持稳健) ====================
+def make_absolute(link, base_url):
+    if not link:
+        return ""
+    if link.startswith('http'):
+        return link
+    if link.startswith('//'):
+        return "https:" + link
+    if link.startswith('/'):
+        from urllib.parse import urlparse
+        parsed = urlparse(base_url)
+        return f"{parsed.scheme}://{parsed.netloc}{link}"
+    return base_url.rsplit('/', 1)[0] + '/' + link
 
-def parse_nissin(soup):
+def extract_img(element, base_url):
+    """从 HTML 节点中提取第一张缩略图"""
+    img_tag = element.find('img') if element else None
+    if img_tag:
+        src = img_tag.get('src') or img_tag.get('data-src') or img_tag.get('data-original') or ""
+        return make_absolute(src, base_url)
+    return ""
+
+# ==================== 各家解析规则 (带图片提取) ====================
+
+def parse_nissin(soup, base_url):
     results = []
-    items = soup.select('.news-list-item a, .news-list a, article a, .news-title a')
+    items = soup.select('.news-list-item, .news-list li, article, .news-title-box')
+    if not items:
+        items = soup.select('.news-list-item a, .news-list a, article a, .news-title a')
     for item in items:
-        title = item.get_text().strip()
-        link = item.get('href', '')
+        a_tag = item if item.name == 'a' else item.find('a')
+        if not a_tag: continue
+        title = a_tag.get_text().strip()
+        link = make_absolute(a_tag.get('href', ''), base_url)
+        img = extract_img(item, base_url)
         if title and len(title) > 8:
-            if link and not link.startswith('http'): link = "https://www.nissin.com" + link
-            results.append({"title": title, "link": link})
+            results.append({"title": title, "link": link, "image": img})
         if len(results) >= 5: break
-    return results if results else [{"title": "日清官网新闻页", "link": "https://www.nissin.com/jp/company/news/"}]
+    return results if results else [{"title": "日清官网新闻页", "link": base_url, "image": ""}]
 
-def parse_toyosuisan(soup):
+def parse_toyosuisan(soup, base_url):
     results = []
-    items = soup.select('.product-list-item a, .product-box a, .list-product a, a[href*="products/detail"]')
+    items = soup.select('.product-list-item, .product-box, .list-product, li')
     for item in items:
-        title = " ".join(item.get_text().split())
-        link = item.get('href', '')
-        if title and len(title) > 4 and "一覧" not in title:
-            if not link.startswith('http'): link = "https://www.maruchan.co.jp" + link
-            results.append({"title": title, "link": link})
+        a_tag = item.find('a', href=True)
+        if not a_tag: continue
+        title = " ".join(a_tag.get_text().split())
+        link = make_absolute(a_tag.get('href', ''), base_url)
+        img = extract_img(item, base_url)
+        if title and len(title) > 4 and "一覧" not in title and "products/detail" in link:
+            results.append({"title": title, "link": link, "image": img})
         if len(results) >= 5: break
-    return results if results else [{"title": "东洋水产新品页", "link": "https://www.maruchan.co.jp/products/"}]
+    return results if results else [{"title": "东洋水产新品页", "link": base_url, "image": ""}]
 
-def parse_myojo(soup):
+def parse_myojo(soup, base_url):
     results = []
-    items = soup.select('.news-list__item a, .news-item a, .news-list a')
+    items = soup.select('.news-list__item, .news-item, li')
     for item in items:
-        title = item.get_text().strip()
-        link = item.get('href', '')
+        a_tag = item.find('a', href=True)
+        if not a_tag: continue
+        title = a_tag.get_text().strip()
+        link = make_absolute(a_tag.get('href', ''), base_url)
+        img = extract_img(item, base_url)
         if title and len(title) > 5:
-            if not link.startswith('http'): link = "https://www.myojofoods.co.jp" + link
-            results.append({"title": title, "link": link})
+            results.append({"title": title, "link": link, "image": img})
         if len(results) >= 5: break
-    return results if results else [{"title": "明星食品官网", "link": "https://www.myojofoods.co.jp/"}]
+    return results if results else [{"title": "明星食品官网", "link": base_url, "image": ""}]
 
-def parse_acecook(soup):
+def parse_acecook(soup, base_url):
     results = []
-    items = soup.select('main .arrival-list a, #contents .product-list a, .arrival-item a')
+    items = soup.select('.arrival-list li, .product-list li, .arrival-item')
     for item in items:
-        title = " ".join(item.get_text().strip().split())
-        link = item.get('href', '')
+        a_tag = item.find('a', href=True)
+        if not a_tag: continue
+        title = " ".join(a_tag.get_text().strip().split())
+        link = make_absolute(a_tag.get('href', ''), base_url)
+        img = extract_img(item, base_url)
         if title and len(title) > 4 and "詳細" not in title:
-            if not link.startswith('http'): link = "https://www.acecook.co.jp" + link
-            results.append({"title": title, "link": link})
+            results.append({"title": title, "link": link, "image": img})
         if len(results) >= 5: break
-    return results if results else [{"title": "Acecook 新着商品页", "link": "https://www.acecook.co.jp/products/arrival/"}]
+    return results if results else [{"title": "Acecook 新着商品页", "link": base_url, "image": ""}]
 
-def parse_asahi(soup):
+def parse_asahi(soup, base_url):
     results = []
-    items = soup.select('.news-release-list a, main a[href*="products"], #content a[href*="products"]')
+    items = soup.select('.news-release-list li, .product-list li, article')
     for item in items:
-        title = item.get_text().strip()
-        link = item.get('href', '')
+        a_tag = item.find('a', href=True)
+        if not a_tag: continue
+        title = a_tag.get_text().strip()
+        link = make_absolute(a_tag.get('href', ''), base_url)
+        img = extract_img(item, base_url)
         if title and len(title) > 6 and "一覧" not in title:
-            if not link.startswith('http'): link = "https://www.asahiinryo.co.jp" + link
-            results.append({"title": title, "link": link})
+            results.append({"title": title, "link": link, "image": img})
         if len(results) >= 5: break
-    return results if results else [{"title": "朝日饮料新品页", "link": "https://www.asahiinryo.co.jp/products/new/"}]
+    return results if results else [{"title": "朝日饮料新品页", "link": base_url, "image": ""}]
 
-def parse_house(soup):
+def parse_house(soup, base_url):
     results = []
-    items = soup.select('.news-list a, .release-list a, a[href*="newsrelease"]')
+    items = soup.select('.news-list li, .release-list li, article')
     for item in items:
-        title = item.get_text().strip()
-        link = item.get('href', '')
+        a_tag = item.find('a', href=True)
+        if not a_tag: continue
+        title = a_tag.get_text().strip()
+        link = make_absolute(a_tag.get('href', ''), base_url)
+        img = extract_img(item, base_url)
         if title and len(title) > 8:
-            if not link.startswith('http'): link = "https://housefoods-group.com" + link
-            results.append({"title": title, "link": link})
+            results.append({"title": title, "link": link, "image": img})
         if len(results) >= 5: break
-    return results if results else [{"title": "好侍食品新闻页", "link": "https://housefoods-group.com/newsrelease/"}]
+    return results if results else [{"title": "好侍食品新闻页", "link": base_url, "image": ""}]
 
-def parse_ajinomoto(soup):
+def parse_ajinomoto(soup, base_url):
     results = []
-    items = soup.select('.press-list a, .news-list a, .c-list__item a, a[href*="company/jp/pressrelease"]')
+    items = soup.select('.press-list li, .news-list li, .c-list__item')
     for item in items:
-        title = " ".join(item.get_text().strip().split())
-        link = item.get('href', '')
+        a_tag = item.find('a', href=True)
+        if not a_tag: continue
+        title = " ".join(a_tag.get_text().strip().split())
+        link = make_absolute(a_tag.get('href', ''), base_url)
+        img = extract_img(item, base_url)
         if title and len(title) > 6:
-            if link and not link.startswith('http'): link = "https://www.ajinomoto.co.jp" + link
-            results.append({"title": title, "link": link})
+            results.append({"title": title, "link": link, "image": img})
         if len(results) >= 5: break
-    return results if results else [{"title": "味之素新闻发布页", "link": "https://www.ajinomoto.co.jp/company/jp/pressrelease/"}]
+    return results if results else [{"title": "味之素新闻发布页", "link": base_url, "image": ""}]
 
-def parse_seven_eleven(soup):
+def parse_seven_eleven(soup, base_url):
     results = []
-    items = soup.select('.p-recommend__list a, .product-list a, a[href*="products/a/item"]')
+    items = soup.select('.p-recommend__list .item, .product-list li, .item_inner')
     for item in items:
-        title = " ".join(item.get_text().strip().split())
-        link = item.get('href', '')
+        a_tag = item.find('a', href=True)
+        if not a_tag: continue
+        title = " ".join(a_tag.get_text().strip().split())
+        link = make_absolute(a_tag.get('href', ''), base_url)
+        img = extract_img(item, base_url)
         if title and len(title) > 4:
-            if not link.startswith('http'): link = "https://www.sej.co.jp" + link
-            results.append({"title": title, "link": link})
+            results.append({"title": title, "link": link, "image": img})
         if len(results) >= 5: break
-    return results if results else [{"title": "日本7-11新品页", "link": "https://www.sej.co.jp/products/a/thisweek/"}]
+    return results if results else [{"title": "日本7-11新品页", "link": base_url, "image": ""}]
 
-def parse_familymart(soup):
+def parse_familymart(soup, base_url):
     results = []
-    items = soup.select('.goods-list a, .p-goods-list a, a[href*="goods/newgoods"]')
+    items = soup.select('.goods-list li, .p-goods-list li, .ly-mod-goods-list li')
     for item in items:
-        title = " ".join(item.get_text().strip().split())
-        link = item.get('href', '')
+        a_tag = item.find('a', href=True)
+        if not a_tag: continue
+        title = " ".join(a_tag.get_text().strip().split())
+        link = make_absolute(a_tag.get('href', ''), base_url)
+        img = extract_img(item, base_url)
         if title and len(title) > 4:
-            if not link.startswith('http'): link = "https://www.family.co.jp" + link
-            results.append({"title": title, "link": link})
+            results.append({"title": title, "link": link, "image": img})
         if len(results) >= 5: break
-    return results if results else [{"title": "日本全家新品页", "link": "https://www.family.co.jp/goods/newgoods.html"}]
+    return results if results else [{"title": "日本全家新品页", "link": base_url, "image": ""}]
 
-def parse_kirin(soup):
+def parse_kirin(soup, base_url):
     results = []
-    items = soup.select('.news-list a, .release-list a, .c-card-link, a[href*="news/press"]')
+    items = soup.select('.news-list li, .release-list li, .c-card')
     for item in items:
-        title = " ".join(item.get_text().strip().split())
-        link = item.get('href', '')
+        a_tag = item.find('a', href=True)
+        if not a_tag: continue
+        title = " ".join(a_tag.get_text().strip().split())
+        link = make_absolute(a_tag.get('href', ''), base_url)
+        img = extract_img(item, base_url)
         if title and len(title) > 8:
-            if link and not link.startswith('http'): link = "https://www.kirinholdings.com" + link
-            results.append({"title": title, "link": link})
+            results.append({"title": title, "link": link, "image": img})
         if len(results) >= 5: break
-    return results if results else [{"title": "麒麟集团新闻页", "link": "https://www.kirinholdings.com/jp/news/"}]
+    return results if results else [{"title": "麒麟集团新闻页", "link": base_url, "image": ""}]
 
-def parse_calbee(soup):
+def parse_calbee(soup, base_url):
     results = []
-    items = soup.select('.p-product-list__item a, .product-list a, .new-product a, a[href*="products/detail"]')
+    items = soup.select('.p-product-list__item, .product-list li, .new-product li')
     for item in items:
-        title = " ".join(item.get_text().strip().split())
-        link = item.get('href', '')
+        a_tag = item.find('a', href=True)
+        if not a_tag: continue
+        title = " ".join(a_tag.get_text().strip().split())
+        link = make_absolute(a_tag.get('href', ''), base_url)
+        img = extract_img(item, base_url)
         if title and len(title) > 3 and "一覧" not in title:
-            if link and not link.startswith('http'): link = "https://www.calbee.co.jp" + link
-            results.append({"title": title, "link": link})
+            results.append({"title": title, "link": link, "image": img})
         if len(results) >= 5: break
-    return results if results else [{"title": "卡乐比新品页", "link": "https://www.calbee.co.jp/products/new/"}]
+    return results if results else [{"title": "卡乐比新品页", "link": base_url, "image": ""}]
 
-def parse_samyang(soup):
+def parse_samyang(soup, base_url):
     results = []
-    items = soup.select('.news-list a, .product-list a, a[href*="board/news"], a[href*="pm/detail"]')
+    items = soup.select('.news-list li, .product-list li, li')
     for item in items:
-        title = " ".join(item.get_text().strip().split())
-        link = item.get('href', '')
-        if title and len(title) > 6:
-            if not link.startswith('http'): link = "https://www.samyangfoods.com" + link
-            results.append({"title": title, "link": link})
+        a_tag = item.find('a', href=True)
+        if not a_tag: continue
+        title = " ".join(a_tag.get_text().strip().split())
+        link = make_absolute(a_tag.get('href', ''), base_url)
+        img = extract_img(item, base_url)
+        if title and len(title) > 6 and ("board/news" in link or "pm/detail" in link):
+            results.append({"title": title, "link": link, "image": img})
         if len(results) >= 5: break
-    return results if results else [{"title": "三养食品官网", "link": "https://www.samyangfoods.com"}]
+    return results if results else [{"title": "三养食品官网", "link": base_url, "image": ""}]
 
-def parse_nongshim(soup):
+def parse_nongshim(soup, base_url):
     results = []
-    items = soup.select('.news-list a, .product-list a, .prd-list a, a[href*="news/dir"], a[href*="prd/list"]')
+    items = soup.select('.news-list li, .product-list li, .prd-list li')
     for item in items:
-        title = " ".join(item.get_text().strip().split())
-        link = item.get('href', '')
-        if title and len(title) > 3:
-            if link and not link.startswith('http'): link = "https://www.nongshim.com" + link
-            results.append({"title": title, "link": link})
+        a_tag = item.find('a', href=True)
+        if not a_tag: continue
+        title = " ".join(a_tag.get_text().strip().split())
+        link = make_absolute(a_tag.get('href', ''), base_url)
+        img = extract_img(item, base_url)
+        if title and len(title) > 3 and ("news/dir" in link or "prd/list" in link):
+            results.append({"title": title, "link": link, "image": img})
         if len(results) >= 5: break
-    return results if results else [{"title": "农心官网", "link": "https://www.nongshim.com"}]
+    return results if results else [{"title": "农心官网", "link": base_url, "image": ""}]
 
-# ==================== ⚙️ 变动比对与主程序 ====================
+# ==================== ⚙️ 主程序与 HTML 生成 ====================
 
 def main():
     kirin_headers = HEADERS.copy()
@@ -240,7 +287,6 @@ def main():
         "韩国农心 (Nongshim)": safe_scrape("https://www.nongshim.com", parse_nongshim),
     }
 
-    #读取上次记录的历史数据历史文件
     history_file = "history.json"
     old_history = {}
     if os.path.exists(history_file):
@@ -253,74 +299,91 @@ def main():
     new_items_to_notify = []
     new_history = {}
 
-    # 比对新旧数据
     for company, items in data.items():
         new_history[company] = [item['title'] for item in items]
         old_titles = old_history.get(company, [])
         
-        # 如果不是第一次运行，且抓到了不在历史记录里的标题，则记为“新品上新”
         if old_titles: 
             for item in items:
-                # 排除提示性信息
                 if item['title'] not in old_titles and "前往" not in item['title'] and "访问失败" not in item['title']:
-                    new_items_to_notify.append({"company": company, "title": item['title'], "link": item['link']})
+                    new_items_to_notify.append({"company": company, "title": item['title'], "link": item['link'], "image": item.get('image', '')})
 
-    # 保存最新历史记录
     with open(history_file, "w", encoding="utf-8") as f:
         json.dump(new_history, f, ensure_ascii=False, indent=2)
 
-    # 如果有新发现，发送微信提醒！
     if new_items_to_notify:
         print(f"检测到 {len(new_items_to_notify)} 个新动态，正在发送微信提醒...")
         send_wechat_notification(new_items_to_notify)
     else:
         print("暂无新上新动态。")
 
-    # 生成 HTML 网页
     update_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    html_content = f"""
-    <!DOCTYPE html>
-    <html lang="zh-CN">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>🍜 全球食品/饮品新品情报站</title>
-        <script src="https://cdn.tailwindcss.com"></script>
-    </head>
-    <body class="bg-gray-50 text-gray-800 font-sans min-h-screen pb-12">
-        <div class="max-w-7xl mx-auto px-4 py-8">
-            <div class="text-center mb-10">
-                <h1 class="text-4xl font-extrabold text-orange-600 mb-2">🍜 全球方便面/零食新品情报站</h1>
-                <p class="text-gray-500">自动巡逻 + 微信同步强提醒</p>
-                <span class="inline-block bg-orange-100 text-orange-800 text-xs px-3 py-1 rounded-full mt-4 font-semibold">
-                    更新时间: {update_time} (微信弹窗已就绪)
-                </span>
+    html_content = f"""<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🍜 全球食品/饮品新品情报站</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .product-card {{
+            transition: transform 0.2s ease, shadow 0.2s ease;
+        }}
+        .product-card:hover {{
+            transform: translateY(-2px);
+        }}
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 font-sans min-h-screen pb-16">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+        <!-- Header Section -->
+        <div class="text-center mb-12">
+            <h1 class="text-3xl sm:text-4xl font-extrabold text-orange-600 tracking-tight mb-2">🍜 全球方便面/食品新品情报站</h1>
+            <p class="text-sm sm:text-base text-gray-500 max-w-xl mx-auto">自动巡逻重点品牌官网 · 直观展示新品名称与商品缩略图</p>
+            <div class="mt-4 inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                <span class="w-2 h-2 mr-2 bg-green-500 rounded-full animate-pulse"></span>
+                更新时间: {update_time} (微信通知就绪)
             </div>
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-    """
+        </div>
+
+        <!-- Brands Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+"""
     for company, items in data.items():
         html_content += f"""
-                <div class="bg-white rounded-2xl shadow-sm hover:shadow-md transition duration-300 border border-gray-100 p-5">
-                    <h2 class="text-lg font-bold text-gray-900 border-b-2 border-orange-400 pb-2 mb-3 flex items-center justify-between">
-                        <span>{company}</span>
-                        <span class="flex h-2.5 w-2.5 relative">
-                          <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                          <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500"></span>
-                        </span>
-                    </h2>
-                    <ul class="space-y-2.5">
-        """
+            <!-- Brand Card -->
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col justify-between">
+                <div class="p-5">
+                    <div class="flex items-center justify-between border-b border-gray-100 pb-3 mb-4">
+                        <h2 class="text-base font-bold text-gray-900 tracking-tight">{company}</h2>
+                        <span class="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">{len(items)} 个新动态</span>
+                    </div>
+                    <div class="space-y-4">
+"""
         for item in items:
+            img_html = f'<img src="{item["image"]}" alt="{item["title"]}" class="w-16 h-16 object-cover rounded-lg border border-gray-100 flex-shrink-0 bg-gray-50 mr-3" loading="lazy" onerror="this.style.display=\'none\'">' if item.get('image') else ''
             html_content += f"""
-                        <li class="group">
-                            <a href="{item['link']}" target="_blank" class="block text-xs text-gray-600 hover:text-orange-600 hover:underline transition duration-200">
-                                • {item['title']}
-                            </a>
-                        </li>
-            """
-        html_content += "</ul></div>"
+                        <a href="{item['link']}" target="_blank" class="product-card flex items-start p-2 rounded-xl hover:bg-orange-50/60 transition duration-150 group">
+                            {img_html}
+                            <div class="flex-1 min-w-0">
+                                <p class="text-xs font-semibold text-gray-800 group-hover:text-orange-600 line-clamp-2 leading-snug">
+                                    {item['title']}
+                                </p>
+                            </div>
+                        </a>
+"""
+        html_content += """
+                    </div>
+                </div>
+            </div>
+"""
 
-    html_content += "</div></div></body></html>"
+    html_content += """
+        </div>
+    </div>
+</body>
+</html>
+"""
 
     with open("index.html", "w", encoding="utf-8") as f:
         f.write(html_content)
