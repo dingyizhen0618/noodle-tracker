@@ -3,386 +3,152 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🍜 全球食品/饮品新品情报站</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <title>日韩泡面新品情报站</title>
     <style>
-        .product-card {
-            transition: transform 0.2s ease, shadow 0.2s ease;
+        :root {
+            --bg-color: #f8fafc;
+            --card-bg: #ffffff;
+            --text-primary: #1e293b;
+            --text-secondary: #64748b;
+            --accent-color: #f97316;
+            --border-color: #e2e8f0;
         }
-        .product-card:hover {
-            transform: translateY(-2px);
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            margin: 0;
+            padding: 40px 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+
+        .header h1 {
+            font-size: 28px;
+            font-weight: 800;
+            color: #ea580c;
+            margin: 0 0 12px 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .update-badge {
+            display: inline-block;
+            background-color: #ffedf0;
+            color: #e11d48;
+            font-size: 13px;
+            font-weight: 500;
+            padding: 6px 16px;
+            border-radius: 20px;
+            border: 1px solid #fecdd3;
+        }
+
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 20px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .brand-card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 20px;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+
+        .brand-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .brand-title {
+            font-size: 16px;
+            font-weight: 700;
+        }
+
+        .item-count {
+            font-size: 12px;
+            background: #f1f5f9;
+            color: var(--text-secondary);
+            padding: 2px 8px;
+            border-radius: 10px;
+        }
+
+        .item-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .news-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .news-item img {
+            width: 48px;
+            height: 48px;
+            object-fit: cover;
+            border-radius: 6px;
+            background: #f1f5f9;
+        }
+
+        .news-title {
+            font-size: 13px;
+            line-height: 1.4;
+            color: var(--text-primary);
+            text-decoration: none;
+        }
+
+        .news-title:hover {
+            color: var(--accent-color);
+        }
+
+        .empty-state {
+            font-size: 13px;
+            color: #94a3b8;
+            text-align: center;
+            padding: 20px 0;
         }
     </style>
 </head>
-<body class="bg-gray-50 text-gray-800 font-sans min-h-screen pb-16">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-        <!-- Header Section -->
-        <div class="text-center mb-12">
-            <h1 class="text-3xl sm:text-4xl font-extrabold text-orange-600 tracking-tight mb-2">🍜 全球方便面/食品新品情报站</h1>
-            <p class="text-sm sm:text-base text-gray-500 max-w-xl mx-auto">自动巡逻重点品牌官网 · 直观展示新品名称与商品缩略图</p>
-            <div class="mt-4 inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
-                <span class="w-2 h-2 mr-2 bg-green-500 rounded-full animate-pulse"></span>
-                更新时间: 2026-09-01 03:57:15 (微信通知就绪)
+<body>
+
+    <div class="header">
+        <h1>🍜 日韩泡面新品情报站</h1>
+        <div class="update-badge">🟢 更新时间: {{ UPDATE_TIME }}</div>
+    </div>
+
+    <div class="grid-container">
+        <!-- 循环渲染品牌卡片 -->
+        <!-- 示例卡片结构 -->
+        <div class="brand-card">
+            <div class="brand-header">
+                <span class="brand-title">日清食品 (Nissin)</span>
+                <span class="item-count">3 个动态</span>
             </div>
-        </div>
-
-        <!-- Brands Grid -->
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-
-            <!-- Brand Card -->
-            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col justify-between">
-                <div class="p-5">
-                    <div class="flex items-center justify-between border-b border-gray-100 pb-3 mb-4">
-                        <h2 class="text-base font-bold text-gray-900 tracking-tight">日清食品 (Nissin)</h2>
-                        <span class="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">1 个新动态</span>
-                    </div>
-                    <div class="space-y-4">
-
-                        <a href="https://www.nissin.com/jp/company/news/" target="_blank" class="product-card flex items-start p-2 rounded-xl hover:bg-orange-50/60 transition duration-150 group">
-                            
-                            <div class="flex-1 min-w-0">
-                                <p class="text-xs font-semibold text-gray-800 group-hover:text-orange-600 line-clamp-2 leading-snug">
-                                    日清官网新闻页
-                                </p>
-                            </div>
-                        </a>
-
-                    </div>
+            <div class="item-list">
+                <div class="news-item">
+                    <img src="https://via.placeholder.com/48" alt="thumb">
+                    <span class="news-title">カップヌードル 新商品情報</span>
                 </div>
             </div>
-
-            <!-- Brand Card -->
-            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col justify-between">
-                <div class="p-5">
-                    <div class="flex items-center justify-between border-b border-gray-100 pb-3 mb-4">
-                        <h2 class="text-base font-bold text-gray-900 tracking-tight">东洋水产 (Maruchan)</h2>
-                        <span class="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">1 个新动态</span>
-                    </div>
-                    <div class="space-y-4">
-
-                        <a href="https://www.maruchan.co.jp/products/" target="_blank" class="product-card flex items-start p-2 rounded-xl hover:bg-orange-50/60 transition duration-150 group">
-                            
-                            <div class="flex-1 min-w-0">
-                                <p class="text-xs font-semibold text-gray-800 group-hover:text-orange-600 line-clamp-2 leading-snug">
-                                    东洋水产新品页
-                                </p>
-                            </div>
-                        </a>
-
-                    </div>
-                </div>
-            </div>
-
-            <!-- Brand Card -->
-            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col justify-between">
-                <div class="p-5">
-                    <div class="flex items-center justify-between border-b border-gray-100 pb-3 mb-4">
-                        <h2 class="text-base font-bold text-gray-900 tracking-tight">明星食品 (Myojo)</h2>
-                        <span class="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">4 个新动态</span>
-                    </div>
-                    <div class="space-y-4">
-
-                        <a href="https://www.myojofoods.co.jp/sustainability/" target="_blank" class="product-card flex items-start p-2 rounded-xl hover:bg-orange-50/60 transition duration-150 group">
-                            <img src="https://www.myojofoods.co.jp/assets/images/svg/sustainability.svg" alt="サステナビリティ" class="w-16 h-16 object-cover rounded-lg border border-gray-100 flex-shrink-0 bg-gray-50 mr-3" loading="lazy" onerror="this.style.display='none'">
-                            <div class="flex-1 min-w-0">
-                                <p class="text-xs font-semibold text-gray-800 group-hover:text-orange-600 line-clamp-2 leading-snug">
-                                    サステナビリティ
-                                </p>
-                            </div>
-                        </a>
-
-                        <a href="https://www.myojofoods.co.jp/sustainability/" target="_blank" class="product-card flex items-start p-2 rounded-xl hover:bg-orange-50/60 transition duration-150 group">
-                            <img src="https://www.myojofoods.co.jp/assets/images/svg/sustainability.svg?" alt="サステナビリティ" class="w-16 h-16 object-cover rounded-lg border border-gray-100 flex-shrink-0 bg-gray-50 mr-3" loading="lazy" onerror="this.style.display='none'">
-                            <div class="flex-1 min-w-0">
-                                <p class="text-xs font-semibold text-gray-800 group-hover:text-orange-600 line-clamp-2 leading-snug">
-                                    サステナビリティ
-                                </p>
-                            </div>
-                        </a>
-
-                        <a href="https://www.myojofoods.co.jp/sitepolicy/" target="_blank" class="product-card flex items-start p-2 rounded-xl hover:bg-orange-50/60 transition duration-150 group">
-                            
-                            <div class="flex-1 min-w-0">
-                                <p class="text-xs font-semibold text-gray-800 group-hover:text-orange-600 line-clamp-2 leading-snug">
-                                    サイトのご利用について
-                                </p>
-                            </div>
-                        </a>
-
-                        <a href="https://www.nissin.com/jp/docs/privacy.html" target="_blank" class="product-card flex items-start p-2 rounded-xl hover:bg-orange-50/60 transition duration-150 group">
-                            
-                            <div class="flex-1 min-w-0">
-                                <p class="text-xs font-semibold text-gray-800 group-hover:text-orange-600 line-clamp-2 leading-snug">
-                                    プライバシーポリシー
-                                </p>
-                            </div>
-                        </a>
-
-                    </div>
-                </div>
-            </div>
-
-            <!-- Brand Card -->
-            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col justify-between">
-                <div class="p-5">
-                    <div class="flex items-center justify-between border-b border-gray-100 pb-3 mb-4">
-                        <h2 class="text-base font-bold text-gray-900 tracking-tight">エースコック (Acecook)</h2>
-                        <span class="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">1 个新动态</span>
-                    </div>
-                    <div class="space-y-4">
-
-                        <a href="https://www.acecook.co.jp/products/arrival/" target="_blank" class="product-card flex items-start p-2 rounded-xl hover:bg-orange-50/60 transition duration-150 group">
-                            
-                            <div class="flex-1 min-w-0">
-                                <p class="text-xs font-semibold text-gray-800 group-hover:text-orange-600 line-clamp-2 leading-snug">
-                                    Acecook 新着商品页
-                                </p>
-                            </div>
-                        </a>
-
-                    </div>
-                </div>
-            </div>
-
-            <!-- Brand Card -->
-            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col justify-between">
-                <div class="p-5">
-                    <div class="flex items-center justify-between border-b border-gray-100 pb-3 mb-4">
-                        <h2 class="text-base font-bold text-gray-900 tracking-tight">朝日饮料 (Asahi)</h2>
-                        <span class="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">5 个新动态</span>
-                    </div>
-                    <div class="space-y-4">
-
-                        <a href="https://www.asahiinryo.co.jp/products/new/../carbonated/mitsuya_hachilemo/" target="_blank" class="product-card flex items-start p-2 rounded-xl hover:bg-orange-50/60 transition duration-150 group">
-                            <img src="https://www.asahiinryo.co.jp/products/00_system/image.psp.html?CMD=onAsdProduct&PATH=/web-service/common/products/asahiinryo/P2512170008-181_1.jpg&.png" alt="三ツ矢ハチレモ" class="w-16 h-16 object-cover rounded-lg border border-gray-100 flex-shrink-0 bg-gray-50 mr-3" loading="lazy" onerror="this.style.display='none'">
-                            <div class="flex-1 min-w-0">
-                                <p class="text-xs font-semibold text-gray-800 group-hover:text-orange-600 line-clamp-2 leading-snug">
-                                    三ツ矢ハチレモ
-                                </p>
-                            </div>
-                        </a>
-
-                        <a href="https://www.asahiinryo.co.jp/products/new/../coffee/wonda_vienna_coffee/" target="_blank" class="product-card flex items-start p-2 rounded-xl hover:bg-orange-50/60 transition duration-150 group">
-                            <img src="https://www.asahiinryo.co.jp/products/00_system/image.psp.html?CMD=onAsdProduct&PATH=/web-service/common/products/asahiinryo/2CPW6_DB2_020.jpg&.png" alt="ワンダ 喫茶店のウインナーコーヒー" class="w-16 h-16 object-cover rounded-lg border border-gray-100 flex-shrink-0 bg-gray-50 mr-3" loading="lazy" onerror="this.style.display='none'">
-                            <div class="flex-1 min-w-0">
-                                <p class="text-xs font-semibold text-gray-800 group-hover:text-orange-600 line-clamp-2 leading-snug">
-                                    ワンダ 喫茶店のウインナーコーヒー
-                                </p>
-                            </div>
-                        </a>
-
-                        <a href="https://www.asahiinryo.co.jp/products/new/../tea/16cha_gyuttokoi/" target="_blank" class="product-card flex items-start p-2 rounded-xl hover:bg-orange-50/60 transition duration-150 group">
-                            <img src="https://www.asahiinryo.co.jp/products/00_system/image.psp.html?CMD=onAsdProduct&PATH=/web-service/common/products/asahiinryo/2CNZ4_DB2_020.jpg&.png" alt="アサヒ ぎゅっと濃い十六茶
-機能性表示食品" class="w-16 h-16 object-cover rounded-lg border border-gray-100 flex-shrink-0 bg-gray-50 mr-3" loading="lazy" onerror="this.style.display='none'">
-                            <div class="flex-1 min-w-0">
-                                <p class="text-xs font-semibold text-gray-800 group-hover:text-orange-600 line-clamp-2 leading-snug">
-                                    アサヒ ぎゅっと濃い十六茶
-機能性表示食品
-                                </p>
-                            </div>
-                        </a>
-
-                        <a href="https://www.asahiinryo.co.jp/products/new/../milkybeverage/calpis_wanashi/" target="_blank" class="product-card flex items-start p-2 rounded-xl hover:bg-orange-50/60 transition duration-150 group">
-                            <img src="https://www.asahiinryo.co.jp/products/00_system/image.psp.html?CMD=onAsdProduct&PATH=/web-service/common/products/asahiinryo/2E2AV_DB2_020.jpg&.png" alt="「カルピス(R)和梨」
-希釈" class="w-16 h-16 object-cover rounded-lg border border-gray-100 flex-shrink-0 bg-gray-50 mr-3" loading="lazy" onerror="this.style.display='none'">
-                            <div class="flex-1 min-w-0">
-                                <p class="text-xs font-semibold text-gray-800 group-hover:text-orange-600 line-clamp-2 leading-snug">
-                                    「カルピス(R)和梨」
-希釈
-                                </p>
-                            </div>
-                        </a>
-
-                        <a href="https://www.asahiinryo.co.jp/products/new/../milkybeverage/cs_peach/" target="_blank" class="product-card flex items-start p-2 rounded-xl hover:bg-orange-50/60 transition duration-150 group">
-                            <img src="https://www.asahiinryo.co.jp/products/00_system/image.psp.html?CMD=onAsdProduct&PATH=/web-service/common/products/asahiinryo/2E2AQ_DB2_020.jpg&.png" alt="「カルピスソーダ(R)完熟桃のくつろぎ時間」" class="w-16 h-16 object-cover rounded-lg border border-gray-100 flex-shrink-0 bg-gray-50 mr-3" loading="lazy" onerror="this.style.display='none'">
-                            <div class="flex-1 min-w-0">
-                                <p class="text-xs font-semibold text-gray-800 group-hover:text-orange-600 line-clamp-2 leading-snug">
-                                    「カルピスソーダ(R)完熟桃のくつろぎ時間」
-                                </p>
-                            </div>
-                        </a>
-
-                    </div>
-                </div>
-            </div>
-
-            <!-- Brand Card -->
-            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col justify-between">
-                <div class="p-5">
-                    <div class="flex items-center justify-between border-b border-gray-100 pb-3 mb-4">
-                        <h2 class="text-base font-bold text-gray-900 tracking-tight">好侍食品 (House)</h2>
-                        <span class="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">1 个新动态</span>
-                    </div>
-                    <div class="space-y-4">
-
-                        <a href="https://housefoods-group.com/newsrelease/" target="_blank" class="product-card flex items-start p-2 rounded-xl hover:bg-orange-50/60 transition duration-150 group">
-                            
-                            <div class="flex-1 min-w-0">
-                                <p class="text-xs font-semibold text-gray-800 group-hover:text-orange-600 line-clamp-2 leading-snug">
-                                    好侍食品新闻页
-                                </p>
-                            </div>
-                        </a>
-
-                    </div>
-                </div>
-            </div>
-
-            <!-- Brand Card -->
-            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col justify-between">
-                <div class="p-5">
-                    <div class="flex items-center justify-between border-b border-gray-100 pb-3 mb-4">
-                        <h2 class="text-base font-bold text-gray-900 tracking-tight">味之素 (Ajinomoto)</h2>
-                        <span class="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">1 个新动态</span>
-                    </div>
-                    <div class="space-y-4">
-
-                        <a href="https://www.ajinomoto.co.jp/company/jp/pressrelease/" target="_blank" class="product-card flex items-start p-2 rounded-xl hover:bg-orange-50/60 transition duration-150 group">
-                            
-                            <div class="flex-1 min-w-0">
-                                <p class="text-xs font-semibold text-gray-800 group-hover:text-orange-600 line-clamp-2 leading-snug">
-                                    访问失败 (404)
-                                </p>
-                            </div>
-                        </a>
-
-                    </div>
-                </div>
-            </div>
-
-            <!-- Brand Card -->
-            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col justify-between">
-                <div class="p-5">
-                    <div class="flex items-center justify-between border-b border-gray-100 pb-3 mb-4">
-                        <h2 class="text-base font-bold text-gray-900 tracking-tight">日本 7-11</h2>
-                        <span class="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">1 个新动态</span>
-                    </div>
-                    <div class="space-y-4">
-
-                        <a href="https://www.sej.co.jp/products/a/thisweek/" target="_blank" class="product-card flex items-start p-2 rounded-xl hover:bg-orange-50/60 transition duration-150 group">
-                            
-                            <div class="flex-1 min-w-0">
-                                <p class="text-xs font-semibold text-gray-800 group-hover:text-orange-600 line-clamp-2 leading-snug">
-                                    日本7-11新品页
-                                </p>
-                            </div>
-                        </a>
-
-                    </div>
-                </div>
-            </div>
-
-            <!-- Brand Card -->
-            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col justify-between">
-                <div class="p-5">
-                    <div class="flex items-center justify-between border-b border-gray-100 pb-3 mb-4">
-                        <h2 class="text-base font-bold text-gray-900 tracking-tight">日本全家</h2>
-                        <span class="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">1 个新动态</span>
-                    </div>
-                    <div class="space-y-4">
-
-                        <a href="https://www.family.co.jp/goods/newgoods.html" target="_blank" class="product-card flex items-start p-2 rounded-xl hover:bg-orange-50/60 transition duration-150 group">
-                            
-                            <div class="flex-1 min-w-0">
-                                <p class="text-xs font-semibold text-gray-800 group-hover:text-orange-600 line-clamp-2 leading-snug">
-                                    日本全家新品页
-                                </p>
-                            </div>
-                        </a>
-
-                    </div>
-                </div>
-            </div>
-
-            <!-- Brand Card -->
-            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col justify-between">
-                <div class="p-5">
-                    <div class="flex items-center justify-between border-b border-gray-100 pb-3 mb-4">
-                        <h2 class="text-base font-bold text-gray-900 tracking-tight">麒麟集团 (Kirin)</h2>
-                        <span class="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">1 个新动态</span>
-                    </div>
-                    <div class="space-y-4">
-
-                        <a href="https://www.kirinholdings.com/jp/news/" target="_blank" class="product-card flex items-start p-2 rounded-xl hover:bg-orange-50/60 transition duration-150 group">
-                            
-                            <div class="flex-1 min-w-0">
-                                <p class="text-xs font-semibold text-gray-800 group-hover:text-orange-600 line-clamp-2 leading-snug">
-                                    访问失败 (404)
-                                </p>
-                            </div>
-                        </a>
-
-                    </div>
-                </div>
-            </div>
-
-            <!-- Brand Card -->
-            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col justify-between">
-                <div class="p-5">
-                    <div class="flex items-center justify-between border-b border-gray-100 pb-3 mb-4">
-                        <h2 class="text-base font-bold text-gray-900 tracking-tight">卡乐比 (Calbee)</h2>
-                        <span class="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">1 个新动态</span>
-                    </div>
-                    <div class="space-y-4">
-
-                        <a href="https://www.calbee.co.jp/products/new/" target="_blank" class="product-card flex items-start p-2 rounded-xl hover:bg-orange-50/60 transition duration-150 group">
-                            
-                            <div class="flex-1 min-w-0">
-                                <p class="text-xs font-semibold text-gray-800 group-hover:text-orange-600 line-clamp-2 leading-snug">
-                                    访问失败 (404)
-                                </p>
-                            </div>
-                        </a>
-
-                    </div>
-                </div>
-            </div>
-
-            <!-- Brand Card -->
-            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col justify-between">
-                <div class="p-5">
-                    <div class="flex items-center justify-between border-b border-gray-100 pb-3 mb-4">
-                        <h2 class="text-base font-bold text-gray-900 tracking-tight">韩国三养 (Samyang)</h2>
-                        <span class="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">1 个新动态</span>
-                    </div>
-                    <div class="space-y-4">
-
-                        <a href="https://www.samyangfoods.com" target="_blank" class="product-card flex items-start p-2 rounded-xl hover:bg-orange-50/60 transition duration-150 group">
-                            
-                            <div class="flex-1 min-w-0">
-                                <p class="text-xs font-semibold text-gray-800 group-hover:text-orange-600 line-clamp-2 leading-snug">
-                                    三养食品官网
-                                </p>
-                            </div>
-                        </a>
-
-                    </div>
-                </div>
-            </div>
-
-            <!-- Brand Card -->
-            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col justify-between">
-                <div class="p-5">
-                    <div class="flex items-center justify-between border-b border-gray-100 pb-3 mb-4">
-                        <h2 class="text-base font-bold text-gray-900 tracking-tight">韩国农心 (Nongshim)</h2>
-                        <span class="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">1 个新动态</span>
-                    </div>
-                    <div class="space-y-4">
-
-                        <a href="https://www.nongshim.com" target="_blank" class="product-card flex items-start p-2 rounded-xl hover:bg-orange-50/60 transition duration-150 group">
-                            
-                            <div class="flex-1 min-w-0">
-                                <p class="text-xs font-semibold text-gray-800 group-hover:text-orange-600 line-clamp-2 leading-snug">
-                                    连接超时: HTTPSConnectionPool(
-                                </p>
-                            </div>
-                        </a>
-
-                    </div>
-                </div>
-            </div>
-
         </div>
     </div>
+
 </body>
 </html>
