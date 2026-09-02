@@ -1,23 +1,22 @@
 import os
 import json
 import re
-import requests
 from bs4 import BeautifulSoup
 from datetime import datetime, timezone, timedelta
+import cloudscraper
 
-# 模拟真实 Chrome 浏览器，防止被官网拦截
-HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
-    "Accept-Language": "ja-JP,ja;q=0.9,zh-CN;q=0.8,zh;q=0.7,en-US;q=0.6,en;q=0.5",
-    "Cache-Control": "max-age=0",
-    "Upgrade-Insecure-Requests": "1"
-}
+# 创建智能爬虫实例，模拟真实 Chrome 浏览器
+scraper = cloudscraper.create_scraper(
+    browser={
+        'browser': 'chrome',
+        'platform': 'windows',
+        'desktop': True
+    }
+)
 
 def get_url(url):
     try:
-        session = requests.Session()
-        resp = session.get(url, headers=HEADERS, timeout=15)
+        resp = scraper.get(url, timeout=15)
         print(f"[请求] {url} -> HTTP {resp.status_code}")
         if resp.status_code == 200:
             resp.encoding = resp.apparent_encoding or 'utf-8'
@@ -46,11 +45,12 @@ def fetch_nissin():
     if not html:
         return items
     soup = BeautifulSoup(html, 'html.parser')
-    cards = soup.select('.p-news-list__item, .p-card, article, .news-list li, .p-news-list div')
+    cards = soup.select('.p-news-list__item, .p-card, article, .news-list li, a.p-card')
     for card in cards:
-        title_el = card.select_one('.p-card__title, .title, h3, h2, a')
+        title_el = card.select_one('.p-card__title, .title, h3, h2, span')
         img_el = card.select_one('img')
-        link_el = card.select_one('a')
+        link_el = card if card.name == 'a' else card.select_one('a')
+        
         if title_el:
             title = title_el.get_text(strip=True)
             if not title or "新商品情報" in title or title == "ニュース":
@@ -71,7 +71,7 @@ def fetch_maruchan():
     if not html:
         return items
     soup = BeautifulSoup(html, 'html.parser')
-    cards = soup.select('.news-list li, .article-list article, .newsBox, li')
+    cards = soup.select('.news-list li, .article-list article, .newsBox, li.item')
     for card in cards:
         title_el = card.select_one('.title, dt, h3, a')
         img_el = card.select_one('img')
@@ -96,14 +96,14 @@ def fetch_myojo():
     if not html:
         return items
     soup = BeautifulSoup(html, 'html.parser')
-    cards = soup.select('main .p-news-list__item, main .c-card-news, main article, .p-news-list__item')
+    cards = soup.select('main .p-news-list__item, main .c-card-news, article')
     for card in cards:
         title_el = card.select_one('.c-card-news__title, .title, h3, a')
         img_el = card.select_one('img')
         link_el = card.select_one('a')
         if title_el:
             title = title_el.get_text(strip=True)
-            if "プライバシー" in title or "サステナビリティ" in title or "利用規約" in title:
+            if "プライバシー" in title or "サステナビリティ" in title:
                 continue
             img = make_abs_url(url, img_el.get('src') if img_el else '')
             link = make_abs_url(url, link_el.get('href') if link_el else '')
@@ -136,7 +136,7 @@ def fetch_acecook():
             break
     return items
 
-# ==================== 生成卡片 HTML ====================
+# ==================== 生成 HTML ====================
 def generate_html_cards(brand_name, items):
     if not items:
         return ""
@@ -187,26 +187,37 @@ def main():
         except Exception as e:
             print(f" -> 抓取失败 {name}: {e}")
 
-    # 保底提示：若全部被云端反爬拦截，显示明确提示
-    if total_count == 0:
-        print("\n[警告] 未能获取到新数据，触发保底提示。")
-        all_cards_html = '<div style="text-align: center; padding: 40px; color: #64748b; font-size: 1rem;">官网巡逻中，暂未检测到新发布商品，请稍后刷新。</div>'
-
     now_jst = datetime.now(timezone(timedelta(hours=9))).strftime("%Y-%m-%d %H:%M")
 
-    # 保存 JSON
-    with open("history.json", "w", encoding="utf-8") as f:
-        json.dump({"update_time": now_jst, "brands": result_data}, f, ensure_ascii=False, indent=2)
+    # 防空白保底机制：如果本次全被拦截，尝试使用 history.json 中的上一次有效数据
+    if total_count == 0 and os.path.exists("history.json"):
+        try:
+            with open("history.json", "r", encoding="utf-8") as f:
+                old_data = json.load(f).get("brands", {})
+            for name, items in old_data.items():
+                if items:
+                    all_cards_html += generate_html_cards(name, items)
+                    total_count += len(items)
+            print("[提示] 触发备用数据机制，成功载入历史快照内容。")
+        except Exception as e:
+            print(f"[错误] 读取历史数据失败: {e}")
 
-    # 替换 index.html 中的文本与 HTML
+    # 如果仍然完全没有内容，显示友好提示
+    if total_count == 0:
+        all_cards_html = '<div style="text-align: center; padding: 50px 20px; color: #64748b;">官网巡逻中，暂未检测到新发布商品，请稍后刷新页面。</div>'
+
+    # 写入 history.json（仅在有新数据时覆盖）
+    if total_count > 0 and result_data:
+        with open("history.json", "w", encoding="utf-8") as f:
+            json.dump({"update_time": now_jst, "brands": result_data}, f, ensure_ascii=False, indent=2)
+
+    # 替换 index.html 中的内容
     if os.path.exists("index.html"):
         with open("index.html", "r", encoding="utf-8") as f:
             html_content = f.read()
 
-        # 1. 替换更新时间（同时兼容 {{ UPDATE_TIME }} 和已被替换的时间格式）
         html_content = re.sub(r'🟢 更新时间:.*?(?=</div>)', f'🟢 更新时间: {now_jst}', html_content)
         
-        # 2. 替换 CONTENT 区域
         if "<!-- CONTENT_START -->" in html_content and "<!-- CONTENT_END -->" in html_content:
             pattern = r"<!-- CONTENT_START -->[\s\S]*?<!-- CONTENT_END -->"
             replacement = f"<!-- CONTENT_START -->\n{all_cards_html}\n<!-- CONTENT_END -->"
