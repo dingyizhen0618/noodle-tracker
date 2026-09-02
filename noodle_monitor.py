@@ -1,22 +1,24 @@
 import os
 import json
 import re
+import requests
 from bs4 import BeautifulSoup
 from datetime import datetime, timezone, timedelta
-import cloudscraper
 
-# 创建智能爬虫实例，模拟真实 Chrome 浏览器
-scraper = cloudscraper.create_scraper(
-    browser={
-        'browser': 'chrome',
-        'platform': 'windows',
-        'desktop': True
-    }
-)
+# 模拟真实的桌面 Chrome 浏览器 Headers，包含 Referer
+BASE_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+    "Accept-Language": "ja,zh-CN;q=0.9,zh;q=0.8,en;q=0.7",
+    "Cache-Control": "no-cache",
+    "Pragma": "no-cache",
+}
 
 def get_url(url):
     try:
-        resp = scraper.get(url, timeout=15)
+        headers = BASE_HEADERS.copy()
+        headers["Referer"] = url
+        resp = requests.get(url, headers=headers, timeout=15)
         print(f"[请求] {url} -> HTTP {resp.status_code}")
         if resp.status_code == 200:
             resp.encoding = resp.apparent_encoding or 'utf-8'
@@ -37,6 +39,9 @@ def make_abs_url(base, src):
         return (domain.group(1) if domain else "") + src
     return base.rsplit('/', 1)[0] + '/' + src
 
+# 过滤垃圾词汇（隐私政策、公司介绍等非商品内容）
+FILTER_WORDS = ["プライバシー", "サステナビリティ", "利用規約", "会社概要", "IR情報", "採用情報", "お問い合わせ"]
+
 # ==================== 1. 日清食品 (Nissin) ====================
 def fetch_nissin():
     url = "https://www.nissin.com/jp/products/news/"
@@ -45,20 +50,30 @@ def fetch_nissin():
     if not html:
         return items
     soup = BeautifulSoup(html, 'html.parser')
-    cards = soup.select('.p-news-list__item, .p-card, article, .news-list li, a.p-card')
-    for card in cards:
-        title_el = card.select_one('.p-card__title, .title, h3, h2, span')
-        img_el = card.select_one('img')
-        link_el = card if card.name == 'a' else card.select_one('a')
-        
-        if title_el:
-            title = title_el.get_text(strip=True)
-            if not title or "新商品情報" in title or title == "ニュース":
-                continue
-            img = make_abs_url(url, img_el.get('src') if img_el else '')
-            link = make_abs_url(url, link_el.get('href') if link_el else '')
-            if not any(i['title'] == title for i in items):
-                items.append({'title': title, 'img': img, 'link': link})
+    
+    # 获取所有的链接区块
+    links = soup.find_all('a', href=True)
+    for a in links:
+        href = a['href']
+        # 筛选产品/新闻详情页链接
+        if '/news/' in href or '/products/' in href:
+            text = a.get_text(strip=True)
+            img = a.find('img')
+            img_src = img.get('src') if img else ''
+            
+            # 如果没有直接包含文本，向上找父级容器里的标题
+            if not text:
+                parent = a.find_parent(['article', 'li', 'div'])
+                if parent:
+                    title_el = parent.select_one('h2, h3, .title, .p-card__title')
+                    if title_el:
+                        text = title_el.get_text(strip=True)
+            
+            if text and len(text) > 3 and not any(w in text for w in FILTER_WORDS) and text != "ニュース":
+                abs_link = make_abs_url(url, href)
+                abs_img = make_abs_url(url, img_src)
+                if not any(i['title'] == text for i in items):
+                    items.append({'title': text, 'img': abs_img, 'link': abs_link})
         if len(items) >= 6:
             break
     return items
@@ -71,18 +86,22 @@ def fetch_maruchan():
     if not html:
         return items
     soup = BeautifulSoup(html, 'html.parser')
-    cards = soup.select('.news-list li, .article-list article, .newsBox, li.item')
-    for card in cards:
-        title_el = card.select_one('.title, dt, h3, a')
-        img_el = card.select_one('img')
-        link_el = card.select_one('a')
-        if title_el:
-            title = title_el.get_text(strip=True)
-            if len(title) < 4:
-                continue
+    
+    # 查找新闻列表项
+    elements = soup.select('.news-list li, .newsBox, article, tr, li')
+    for el in elements:
+        a_tag = el.find('a', href=True)
+        if not a_tag:
+            continue
+        title = el.get_text(strip=True)
+        # 清理日期格式干扰
+        title = re.sub(r'^\d{4}\.\d{2}\.\d{2}', '', title).strip()
+        img_el = el.find('img')
+        
+        if title and len(title) > 4 and not any(w in title for w in FILTER_WORDS):
+            link = make_abs_url(url, a_tag['href'])
             img = make_abs_url(url, img_el.get('src') if img_el else '')
-            link = make_abs_url(url, link_el.get('href') if link_el else '')
-            if title and not any(i['title'] == title for i in items):
+            if not any(i['title'] == title for i in items):
                 items.append({'title': title, 'img': img, 'link': link})
         if len(items) >= 6:
             break
@@ -96,19 +115,18 @@ def fetch_myojo():
     if not html:
         return items
     soup = BeautifulSoup(html, 'html.parser')
-    cards = soup.select('main .p-news-list__item, main .c-card-news, article')
-    for card in cards:
-        title_el = card.select_one('.c-card-news__title, .title, h3, a')
-        img_el = card.select_one('img')
-        link_el = card.select_one('a')
-        if title_el:
-            title = title_el.get_text(strip=True)
-            if "プライバシー" in title or "サステナビリティ" in title:
-                continue
+    
+    cards = soup.select('main a, article a, .p-news-list__item a')
+    for a in cards:
+        href = a.get('href', '')
+        text = a.get_text(strip=True)
+        img_el = a.find('img')
+        
+        if text and len(text) > 3 and not any(w in text for w in FILTER_WORDS):
+            link = make_abs_url(url, href)
             img = make_abs_url(url, img_el.get('src') if img_el else '')
-            link = make_abs_url(url, link_el.get('href') if link_el else '')
-            if title and not any(i['title'] == title for i in items):
-                items.append({'title': title, 'img': img, 'link': link})
+            if not any(i['title'] == text for i in items):
+                items.append({'title': text, 'img': img, 'link': link})
         if len(items) >= 6:
             break
     return items
@@ -121,16 +139,20 @@ def fetch_acecook():
     if not html:
         return items
     soup = BeautifulSoup(html, 'html.parser')
-    cards = soup.select('.news-list__item, .p-news-item, .mod-newsList-item, article')
+    
+    cards = soup.select('.news-list__item, .p-news-item, article, li')
     for card in cards:
-        title_el = card.select_one('.title, .p-news-item__title, h3, a')
-        img_el = card.select_one('img')
-        link_el = card.select_one('a')
-        if title_el:
-            title = title_el.get_text(strip=True)
+        a_tag = card.find('a', href=True)
+        if not a_tag:
+            continue
+        title = card.get_text(strip=True)
+        title = re.sub(r'^\d{4}\.\d{2}\.\d{2}', '', title).strip()
+        img_el = card.find('img')
+        
+        if title and len(title) > 3 and not any(w in title for w in FILTER_WORDS):
+            link = make_abs_url(url, a_tag['href'])
             img = make_abs_url(url, img_el.get('src') if img_el else '')
-            link = make_abs_url(url, link_el.get('href') if link_el else '')
-            if title and not any(i['title'] == title for i in items):
+            if not any(i['title'] == title for i in items):
                 items.append({'title': title, 'img': img, 'link': link})
         if len(items) >= 6:
             break
@@ -187,36 +209,23 @@ def main():
         except Exception as e:
             print(f" -> 抓取失败 {name}: {e}")
 
-    now_jst = datetime.now(timezone(timedelta(hours=9))).strftime("%Y-%m-%d %H:%M")
+    # 修改为中国时间 (UTC+8)
+    now_cst = datetime.now(timezone(timedelta(hours=8))).strftime("%Y-%m-%d %H:%M")
 
-    # 防空白保底机制：如果本次全被拦截，尝试使用 history.json 中的上一次有效数据
-    if total_count == 0 and os.path.exists("history.json"):
-        try:
-            with open("history.json", "r", encoding="utf-8") as f:
-                old_data = json.load(f).get("brands", {})
-            for name, items in old_data.items():
-                if items:
-                    all_cards_html += generate_html_cards(name, items)
-                    total_count += len(items)
-            print("[提示] 触发备用数据机制，成功载入历史快照内容。")
-        except Exception as e:
-            print(f"[错误] 读取历史数据失败: {e}")
-
-    # 如果仍然完全没有内容，显示友好提示
+    # 保底显示机制：若未获取到数据则显示文字提示
     if total_count == 0:
-        all_cards_html = '<div style="text-align: center; padding: 50px 20px; color: #64748b;">官网巡逻中，暂未检测到新发布商品，请稍后刷新页面。</div>'
+        all_cards_html = '<div style="text-align: center; padding: 50px 20px; color: #64748b;">官网巡逻中，暂未检测到新发布商品，请稍后刷新。</div>'
 
-    # 写入 history.json（仅在有新数据时覆盖）
-    if total_count > 0 and result_data:
-        with open("history.json", "w", encoding="utf-8") as f:
-            json.dump({"update_time": now_jst, "brands": result_data}, f, ensure_ascii=False, indent=2)
+    # 保存至 history.json
+    with open("history.json", "w", encoding="utf-8") as f:
+        json.dump({"update_time": now_cst, "brands": result_data}, f, ensure_ascii=False, indent=2)
 
-    # 替换 index.html 中的内容
+    # 替换 index.html
     if os.path.exists("index.html"):
         with open("index.html", "r", encoding="utf-8") as f:
             html_content = f.read()
 
-        html_content = re.sub(r'🟢 更新时间:.*?(?=</div>)', f'🟢 更新时间: {now_jst}', html_content)
+        html_content = re.sub(r'🟢 更新时间:.*?(?=</div>)', f'🟢 更新时间: {now_cst}', html_content)
         
         if "<!-- CONTENT_START -->" in html_content and "<!-- CONTENT_END -->" in html_content:
             pattern = r"<!-- CONTENT_START -->[\s\S]*?<!-- CONTENT_END -->"
@@ -226,7 +235,7 @@ def main():
         with open("index.html", "w", encoding="utf-8") as f:
             f.write(html_content)
 
-    print(f"\n=== 执行完成！更新时间：{now_jst} ===")
+    print(f"\n=== 执行完成！更新时间(北京时间)：{now_cst} ===")
 
 if __name__ == "__main__":
     main()
