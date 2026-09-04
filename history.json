@@ -1,8 +1,39 @@
 {
-  "update_time": "2026-09-03 10:20",
+  "update_time": "2026-09-04 10:15",
   "brands": {
     "日清食品 (Nissin)": [],
-    "东洋水产 (Maruchan)": [],
+    "东洋水产 (Maruchan)": [
+      {
+        "title": "知る・楽しむ",
+        "img": "",
+        "link": "https://www.maruchan.co.jp/enjoy/"
+      },
+      {
+        "title": "CSR活動",
+        "img": "",
+        "link": "https://www.maruchan.co.jp/csr/"
+      },
+      {
+        "title": "お客様窓口",
+        "img": "",
+        "link": "https://www.maruchan.co.jp/customer/"
+      },
+      {
+        "title": "企業・採用",
+        "img": "",
+        "link": "https://www.maruchan.co.jp/company/"
+      },
+      {
+        "title": "企業理念/スローガン",
+        "img": "",
+        "link": "https://www.maruchan.co.jp/company/info/concept.html"
+      },
+      {
+        "title": "事業所・グループ一覧",
+        "img": "",
+        "link": "https://www.maruchan.co.jp/company/office/"
+      }
+    ],
     "明星食品 (Myojo)": [],
     "エースコック (Acecook)": [
       {
