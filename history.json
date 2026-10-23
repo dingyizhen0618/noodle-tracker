@@ -1,5 +1,5 @@
 {
-  "update_time": "2026-10-22 10:42",
+  "update_time": "2026-10-23 10:46",
   "brands": {
     "日清食品 (Nissin)": [],
     "东洋水产 (Maruchan)": [
@@ -35,37 +35,6 @@
       }
     ],
     "明星食品 (Myojo)": [],
-    "エースコック (Acecook)": [
-      {
-        "title": "商品情報",
-        "img": "",
-        "link": "https://www.acecook.co.jp/products/"
-      },
-      {
-        "title": "ブランド一覧",
-        "img": "",
-        "link": "https://www.acecook.co.jp/brand/"
-      },
-      {
-        "title": "キャンペーン",
-        "img": "",
-        "link": "https://www.acecook.co.jp/campaign/"
-      },
-      {
-        "title": "会社情報",
-        "img": "",
-        "link": "https://www.acecook.co.jp/company/"
-      },
-      {
-        "title": "お客様窓口",
-        "img": "",
-        "link": "https://www.acecook.co.jp/support/"
-      },
-      {
-        "title": "トップページ",
-        "img": "",
-        "link": "https://www.acecook.co.jp/"
-      }
-    ]
+    "エースコック (Acecook)": []
   }
 }
